@@ -1,0 +1,14 @@
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+MemoryCaptures/
+.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.user
+thumb_cache/
+.idea/
