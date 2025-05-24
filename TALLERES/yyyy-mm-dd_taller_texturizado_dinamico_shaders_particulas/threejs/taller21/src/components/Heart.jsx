@@ -1,308 +1,215 @@
-// import { useMemo, useRef } from 'react'
-// import { useFrame } from '@react-three/fiber'
-// import { Shape, ExtrudeGeometry } from 'three'
 
-// const Heart = ({ position = [0, 0, 0] }) => {
-//   const meshRef = useRef()
-//   const hover = useRef(false)
-  
-//   // 1. Creación de la forma del corazón
-//   const heartShape = useMemo(() => {
-//     const shape = new Shape()
-//     const x = 0, y = 0
+
+import { useMemo, useRef } from 'react'
+import { useFrame, extend } from '@react-three/fiber'
+import { Shape, ExtrudeGeometry } from 'three'
+import * as THREE from 'three'
+import { shaderMaterial } from '@react-three/drei'
+const Particles = ({ count = 2000, position = [-10, -40, 0] }) => {
+  const particlesRef = useRef()
+
+  // Generación de datos iniciales
+  const [positions, sizes, colors] = useMemo(() => {
+    const pos = new Float32Array(count * 3)
+    const sizes = new Float32Array(count)
+    const colors = new Float32Array(count * 3)
+    const baseColor = new THREE.Color(0xff00ff)
+
+    for (let i = 0; i < count; i++) {
+      // Posiciones (mantenemos igual)
+      const radius = 15
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.random() * Math.PI
+      pos[i * 3] = position[0] + radius * Math.sin(theta) * Math.cos(phi) + (Math.random() - 0.5) * 2
+      pos[i * 3 + 1] = position[1] + radius * Math.sin(theta) * Math.sin(phi) + (Math.random() - 0.5) * 2
+      pos[i * 3 + 2] = position[2] + radius * Math.cos(theta) + (Math.random() - 0.5) * 2
+      
+      // Tamaño inicial aleatorio
+      sizes[i] = 0.2 + Math.random() * 0.8
+      
+      // Colores (mantenemos igual)
+      const colorVariation = baseColor.clone()
+      colorVariation.offsetHSL(0, Math.random() * 0.3, Math.random() * 0.2 - 0.1)
+      colorVariation.toArray(colors, i * 5)
+    }
     
-//     shape.moveTo(x + 5, y + 5)
-//     shape.bezierCurveTo(x + 5, y + 5, x + 4, y, x, y)
-//     shape.bezierCurveTo(x - 6, y, x - 6, y + 7, x - 6, y + 7)
-//     shape.bezierCurveTo(x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19)
-//     shape.bezierCurveTo(x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7)
-//     shape.bezierCurveTo(x + 16, y + 7, x + 16, y, x + 10, y)
-//     shape.bezierCurveTo(x + 7, y, x + 5, y + 5, x + 5, y + 5)
-    
-//     return shape
-//   }, [])
+    return [pos, sizes, colors]
+  }, [count, position])
 
-//   // 2. Geometría extruida
-//   const geometry = useMemo(() => new ExtrudeGeometry(heartShape, {
-//     depth: 2,
-//     bevelEnabled: true,
-//     bevelSize: 0.3,
-//     bevelThickness: 0.5
-//   }), [heartShape])
+  useFrame(({ clock }) => {
+    if (particlesRef.current) {
+      const geometry = particlesRef.current.geometry
+      const sizes = geometry.attributes.size.array
+      const initialSizes = geometry.attributes.initialSize?.array || sizes.slice()
+      
+      // Guardar tamaños iniciales si es la primera vez
+      if (!geometry.attributes.initialSize) {
+        geometry.setAttribute('initialSize', new THREE.BufferAttribute(sizes.slice(), 1))
+      }
 
-//   // 3. Animación por fotograma
-//   useFrame(({ clock, mouse }) => {
-//     // Animación de color
-//     meshRef.current.material.color.setHSL(
-//       Math.sin(clock.getElapsedTime() * 0.5) * 0.5 + 0.5, // H (tono)
-//       0.8, // S (saturación)
-//       hover.current ? 0.8 : 0.6 // L (luminosidad)
-//     )
-    
-//     // Rotación con mouse
-//     meshRef.current.rotation.x = mouse.y * 0.5
-//     meshRef.current.rotation.y = mouse.x * 0.5
-//   })
+      // Animación de tamaños
+      const time = clock.getElapsedTime()
+      for (let i = 0; i < count; i++) {
+        // Variación senoidal con offset único por partícula
+        const sizeVariation = (Math.sin(time * 2 + i) + Math.cos(time * 3 + i * 0.2)) * 0.4
+        sizes[i] = initialSizes[i] + sizeVariation
+      }
 
-//   return (
-//     <mesh 
-//       ref={meshRef}
-//       position={position}
-//       rotation={[-Math.PI / 2, 0, Math.PI]}
-//     //   rotation={[Math.PI/2, Math.PI, 0]}
-//       onPointerOver={() => (hover.current = true)}
-//       onPointerOut={() => (hover.current = false)}
-//       castShadow
-//     >
-//       <primitive object={geometry} attach="geometry" />
-//       <meshStandardMaterial 
-//         metalness={0.3}
-//         roughness={0.2}
-//         emissive={0xff0000}
-//         emissiveIntensity={0.3}
-//       />
-//     </mesh>
-//   )
-// }
-
-// export default Heart
-
-
-
-
-
-
-// import { useMemo, useRef } from 'react';
-// import { useFrame } from '@react-three/fiber';
-// import { Shape, ExtrudeGeometry, Vector2 } from 'three';
-// import { vertexShader, fragmentShader } from '../shaders/liquidShader';
-
-// const Heart = ({ position = [0, 0, 0] }) => {
-//   const meshRef = useRef();
-//   const mouse = useRef(new Vector2(0.5, 0.5));
-
-//   // Uniforms para los shaders
-//   const uniforms = useMemo(() => ({
-//     uTime: { value: 0 },
-//     uMouse: { value: new Vector2(0.5, 0.5) },
-//     uColor1: { value: new THREE.Color(0xff0066) }, // Rosa
-//     uColor2: { value: new THREE.Color(0x00ffff) }  // Cyan
-//   }), []);
-
-//   // Animación y actualización de uniforms
-//   useFrame(({ clock, mouse: r3fMouse }) => {
-//     uniforms.uTime.value = clock.getElapsedTime();
-    
-//     // Actualizar posición del mouse (normalizada)
-//     mouse.current.set(
-//       (r3fMouse.x + 1) / 2,
-//       (r3fMouse.y + 1) / 2
-//     );
-//     uniforms.uMouse.value = mouse.current;
-//   });
-
-//   // Creación de la geometría (igual que antes)
-//   const heartShape = useMemo(() => { //     const shape = new Shape()
-//     const x = 0, y = 0
-    
-//     shape.moveTo(x + 5, y + 5)
-//     shape.bezierCurveTo(x + 5, y + 5, x + 4, y, x, y)
-//     shape.bezierCurveTo(x - 6, y, x - 6, y + 7, x - 6, y + 7)
-//     shape.bezierCurveTo(x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19)
-//     shape.bezierCurveTo(x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7)
-//     shape.bezierCurveTo(x + 16, y + 7, x + 16, y, x + 10, y)
-//     shape.bezierCurveTo(x + 7, y, x + 5, y + 5, x + 5, y + 5)
-    
-//     return shape }, []);
-//   const geometry = useMemo(() => new ExtrudeGeometry(heartShape, { depth: 2,
-//     bevelEnabled: true,
-//     bevelSize: 0.3,
-//     bevelThickness: 0.5 
-//   }), [heartShape]);
-
-//   return (
-//     <mesh
-//       ref={meshRef}
-//       position={position}
-//       rotation={[Math.PI / 2, Math.PI, 0]}
-//       onPointerMove={(e) => {
-//         // Actualizar posición del mouse en el hover
-//         mouse.current.set(
-//           (e.uv.x + 1) / 2,
-//           (e.uv.y + 1) / 2
-//         );
-//       }}
-//     >
-//       <primitive object={geometry} attach="geometry" />
-//       <shaderMaterial
-//         vertexShader={vertexShader}
-//         fragmentShader={fragmentShader}
-//         uniforms={uniforms}
-//         transparent
-//         wireframe={false}
-//         side={THREE.DoubleSide}
-//       />
-//     </mesh>
-//   );
-// };
-
-// export default Heart;
-
-
-
-import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Shape, ExtrudeGeometry, Vector2, Color, DoubleSide } from 'three';
-import { vertexShader, fragmentShader } from '../shaders/liquidShader';
-
-const Heart = ({ position = [0, 0, 0] }) => {
-  const meshRef = useRef();
-  const mouse = useRef(new Vector2(0.5, 0.5));
-
-  // Uniforms corregidos
-  const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
-    uMouse: { value: new Vector2(0.5, 0.5) },
-    uColor1: { value: new Color(0xff0066) }, // Usando Color importado
-    uColor2: { value: new Color(0x00ffff) }   // Usando Color importado
-  }), []);
-
-  // Creación de la geometría corregida
-  const heartShape = useMemo(() => {
-    const shape = new Shape(); // Añadido el new Shape()
-    const x = 0, y = 0;
-    
-    shape.moveTo(x + 5, y + 5);
-    shape.bezierCurveTo(x + 5, y + 5, x + 4, y, x, y);
-    shape.bezierCurveTo(x - 6, y, x - 6, y + 7, x - 6, y + 7);
-    shape.bezierCurveTo(x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19);
-    shape.bezierCurveTo(x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7);
-    shape.bezierCurveTo(x + 16, y + 7, x + 16, y, x + 10, y);
-    shape.bezierCurveTo(x + 7, y, x + 5, y + 5, x + 5, y + 5);
-    
-    return shape;
-  }, []);
-
-  const geometry = useMemo(() => new ExtrudeGeometry(heartShape, { 
-    depth: 2,
-    bevelEnabled: true,
-    bevelSize: 0.3,
-    bevelThickness: 0.5 
-  }), [heartShape]);
+      // Actualizar el atributo en la GPU
+      geometry.attributes.size.needsUpdate = true
+      
+      // Rotación opcional
+      particlesRef.current.rotation.y = time * 0.1
+    }
+  })
 
   return (
-    <mesh
-      ref={meshRef}
-      position={position}
-      rotation={[Math.PI / 2, Math.PI, 0]}
-      onPointerMove={(e) => {
-        mouse.current.set(
-          (e.uv.x + 1) / 2,
-          (e.uv.y + 1) / 2
-        );
-      }}
-    >
-      <primitive object={geometry} attach="geometry" />
-      <shaderMaterial
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={uniforms}
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={count}
+          itemSize={3}
+          array={positions}
+        />
+        <bufferAttribute
+          attach="attributes-size"
+          count={count}
+          itemSize={5}
+          array={sizes}
+        />
+        <bufferAttribute
+          attach="attributes-color"
+          count={count}
+          itemSize={3}
+          array={colors}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.9}
+        vertexColors
         transparent
-        wireframe={false}
-        side={DoubleSide} // Usando DoubleSide importado
+        alphaTest={0.5}
+        sizeAttenuation={true}
       />
-    </mesh>
-  );
-};
+    </points>
+  )
+}
 
-export default Heart;
-
-
-
-
-// import { useMemo, useRef, useEffect } from 'react';
-// import { useFrame, useThree } from '@react-three/fiber';
-// import { Shape, ExtrudeGeometry, Color, Vector2, DoubleSide } from 'three';
-// import { vertexShader, fragmentShader } from '../shaders/liquidShader';
-
-// const Heart = ({ position = [0, 0, 0] }) => {
-//   const { size } = useThree();
-//   const meshRef = useRef();
-//   const mouse = useRef(new Vector2(0.5, 0.5));
-
-//   // Uniforms para los shaders
-//   const uniforms = useMemo(() => ({
-//     uTime: { value: 0 },
-//     uMouse: { value: new Vector2(0.5, 0.5) },
-//     uColor1: { value: new Color(0xff0066) }, // Rosa intenso
-//     uColor2: { value: new Color(0x33ccff) }  // Azul claro
-//   }), []);
-
-//   // Animación y actualización de uniforms
-//   useFrame(({ clock, mouse: r3fMouse }) => {
-//     uniforms.uTime.value = clock.getElapsedTime();
+// Material del corazón con shaders
+const EnergyMaterial = shaderMaterial(
+  {
+    time: 0,
+    hover: 0,
+    color1: new THREE.Color(0xff0033),
+    color2: new THREE.Color(0x00ffff)
+  },
+  `
+  varying vec2 vUv;
+  varying vec3 vPosition;
+  uniform float time;
+  uniform float hover;
+  
+  void main() {
+    vUv = uv;
+    vec3 pos = position;
     
-//     // Actualizar posición del mouse normalizada
-//     mouse.current.set(
-//       (r3fMouse.x * size.width) / size.width,
-//       (r3fMouse.y * size.height) / size.height
-//     );
-//     uniforms.uMouse.value = mouse.current;
-//   });
-
-//   // Creación de la geometría con normales calculadas
-//   const geometry = useMemo(() => {
-//     const shape = new Shape();
-//     const x = 0, y = 0;
+    float wave = sin(pos.x * 5.0 + time * 2.0) * 0.1 * hover;
+    pos += normal * wave;
     
-//     shape.moveTo(x + 5, y + 5);
-//     shape.bezierCurveTo(x + 5, y + 5, x + 4, y, x, y);
-//     shape.bezierCurveTo(x - 6, y, x - 6, y + 7, x - 6, y + 7);
-//     shape.bezierCurveTo(x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19);
-//     shape.bezierCurveTo(x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7);
-//     shape.bezierCurveTo(x + 16, y + 7, x + 16, y, x + 10, y);
-//     shape.bezierCurveTo(x + 7, y, x + 5, y + 5, x + 5, y + 5);
-
-//     const geom = new ExtrudeGeometry(shape, {
-//       depth: 2,
-//       bevelEnabled: true,
-//       bevelSize: 0.5,
-//       bevelThickness: 1,
-//       bevelSegments: 10
-//     });
+    pos.z += sin(time + pos.x * 2.0) * 0.2 * hover;
+    pos.y += cos(time + pos.y * 2.0) * 0.2 * hover;
     
-//     geom.computeVertexNormals(); // Cálculo crítico de normales
-//     return geom;
-//   }, []);
+    vPosition = pos;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+  `,
+  `
+  varying vec2 vUv;
+  varying vec3 vPosition;
+  uniform float time;
+  uniform float hover;
+  uniform vec3 color1;
+  uniform vec3 color2;
+  
+  void main() {
+    float energyPattern = sin(vUv.x * 20.0 + time * 3.0) * cos(vUv.y * 20.0 + time * 2.0);
+    vec3 baseColor = mix(color1, color2, energyPattern * 0.5 + 0.5);
+    float glow = sin(time * 2.0 + vPosition.z * 5.0) * 0.3 + 0.7;
+    float edge = smoothstep(0.3, 0.8, 1.0 - length(vUv - 0.5));
+    
+    vec3 finalColor = baseColor * glow + edge * 0.5;
+    finalColor *= 1.0 + hover * 0.5;
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+  }
+  `
+)
 
-//   return (
-//     <mesh
-//       ref={meshRef}
-//       position={position}
-//       rotation={[Math.PI / 2, 0, Math.PI]}
-//       scale={0.8}
-//       onPointerMove={(e) => {
-//         // Actualizar posición del mouse con coordenadas UV
-//         mouse.current.set(
-//           (e.uv.x + 1) / 2,
-//           (e.uv.y + 1) / 2
-//         );
-//       }}
-//     >
-//       <bufferGeometry attach="geometry">
-//         <primitive object={geometry} attach="attributes" />
-//       </bufferGeometry>
-//       <shaderMaterial
-//         vertexShader={vertexShader}
-//         fragmentShader={fragmentShader}
-//         uniforms={uniforms}
-//         side={DoubleSide}
-//         transparent={true}
-//         lights={true}
-//         wireframe={false}
-//       />
-//     </mesh>
-//   );
-// };
+extend({ EnergyMaterial })
 
-// export default Heart;
+const Heart = ({ position = [0, 0, 0] }) => {
+  const meshRef = useRef()
+  const hover = useRef(false)
+  const materialRef = useRef()
+
+  // Geometría del corazón
+  const geometry = useMemo(() => {
+    const heartShape = new Shape()
+    const x = 0, y = 0
+    
+    heartShape.moveTo(x + 5, y + 5)
+    heartShape.bezierCurveTo(x + 5, y + 5, x + 4, y, x, y)
+    heartShape.bezierCurveTo(x - 6, y, x - 6, y + 7, x - 6, y + 7)
+    heartShape.bezierCurveTo(x - 6, y + 11, x - 3, y + 15.4, x + 5, y + 19)
+    heartShape.bezierCurveTo(x + 12, y + 15.4, x + 16, y + 11, x + 16, y + 7)
+    heartShape.bezierCurveTo(x + 16, y + 7, x + 16, y, x + 10, y)
+    heartShape.bezierCurveTo(x + 7, y, x + 5, y + 5, x + 5, y + 5)
+    
+    return new ExtrudeGeometry(heartShape, {
+      depth: 2,
+      bevelEnabled: true,
+      bevelSize: 0.3,
+      bevelThickness: 0.5
+    })
+  }, [])
+
+  useFrame(({ clock }) => {
+    if (materialRef.current) {
+      materialRef.current.time = clock.getElapsedTime()
+      materialRef.current.hover = hover.current ? 1.0 : 0.0
+    }
+    meshRef.current.rotation.y += 0.002
+  })
+
+  return (
+    <group position={position}>
+      {/* Corazón principal */}
+      <mesh 
+        ref={meshRef}
+        rotation={[-Math.PI / 2, 0, Math.PI]}
+        onPointerOver={() => (hover.current = true)}
+        onPointerOut={() => (hover.current = false)}
+        castShadow
+      >
+        <primitive object={geometry} attach="geometry" />
+        <energyMaterial
+          ref={materialRef}
+          key={EnergyMaterial.key}
+          color1="#ff0066"
+          color2="#00ffff"
+          transparent
+          metalness={0.6}
+          roughness={0.2}
+        />
+      </mesh>
+
+      {/* Sistema de partículas */}
+      <Particles count={200} position={[0, 0, 0]} />
+    </group>
+  )
+}
+
+export default Heart
+
+

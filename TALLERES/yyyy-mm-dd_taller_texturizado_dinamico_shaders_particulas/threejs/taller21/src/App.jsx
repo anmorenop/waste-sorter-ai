@@ -31,7 +31,7 @@ export default function App() {
         
         {/* Ambiente */}
         <Environment preset="sunset" />
-        <gridHelper args={[20, 20]} />
+       
       </Canvas>
     </div>
   )
